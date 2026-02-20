@@ -1,0 +1,277 @@
+{#
+  Plugin Comerciales — Libro de IVA Trimestral
+  Lee facturascli (ventas) y facturasprov (compras) de FacturaScripts.
+#}
+
+<div class="container-fluid p-3">
+
+    {# ── SELECTOR + BOTÓN PDF ─────────────────────────────────────── #}
+    <div class="row align-items-end mb-4">
+        <div class="col-auto">
+            <form method="get" class="row g-2 align-items-end">
+                <div class="col-auto">
+                    <label class="form-label fw-bold">Año</label>
+                    <select name="anyo" class="form-select" onchange="this.form.submit()">
+                        {% for y in fsc.anyosDisponibles %}
+                            <option value="{{ y }}" {% if y == fsc.anyo %}selected{% endif %}>{{ y }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <label class="form-label fw-bold">Trimestre</label>
+                    <select name="trimestre" class="form-select" onchange="this.form.submit()">
+                        <option value="1" {% if fsc.trimestre == 1 %}selected{% endif %}>T1 · Enero – Marzo</option>
+                        <option value="2" {% if fsc.trimestre == 2 %}selected{% endif %}>T2 · Abril – Junio</option>
+                        <option value="3" {% if fsc.trimestre == 3 %}selected{% endif %}>T3 · Julio – Septiembre</option>
+                        <option value="4" {% if fsc.trimestre == 4 %}selected{% endif %}>T4 · Octubre – Diciembre</option>
+                    </select>
+                </div>
+            </form>
+        </div>
+        <div class="col-auto ms-auto">
+            <a href="ExportResumenPDF?anyo={{ fsc.anyo }}&trimestre={{ fsc.trimestre }}"
+               class="btn btn-danger btn-lg" target="_blank">
+                <i class="fas fa-file-pdf"></i> Descargar PDF
+            </a>
+        </div>
+    </div>
+
+    <div class="alert alert-secondary">
+        <i class="fas fa-calendar-alt"></i>
+        <strong>T{{ fsc.trimestre }} {{ fsc.anyo }}</strong> &nbsp;·&nbsp;
+        {{ fsc.datos.fecha_inicio }} — {{ fsc.datos.fecha_fin }}
+    </div>
+
+    {# ══════════════════════════════════════════════════════════════ #}
+    {# BLOQUE 1: IVA (Modelo 303)                                    #}
+    {# ══════════════════════════════════════════════════════════════ #}
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <i class="fas fa-percent"></i>
+            <strong> Declaración IVA — Modelo 303</strong>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="card h-100 border-success">
+                        <div class="card-body text-center">
+                            <p class="text-muted mb-1">IVA repercutido <small>(facturas emitidas)</small></p>
+                            <h3 class="text-success fw-bold">{{ fsc.datos.iva_repercutido | number_format(2, ',', '.') }} €</h3>
+                            <small class="text-muted">{{ fsc.datos.num_facturas }} factura{% if fsc.datos.num_facturas != 1 %}s{% endif %}</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100 border-warning">
+                        <div class="card-body text-center">
+                            <p class="text-muted mb-1">IVA soportado <small>(compras y gastos)</small></p>
+                            <h3 class="text-warning fw-bold">{{ fsc.datos.iva_soportado | number_format(2, ',', '.') }} €</h3>
+                            <small class="text-muted">{{ fsc.datos.num_compras }} compra{% if fsc.datos.num_compras != 1 %}s{% endif %}</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100 {% if fsc.datos.iva_a_pagar > 0 %}border-danger{% else %}border-success{% endif %}">
+                        <div class="card-body text-center">
+                            <p class="text-muted mb-1"><strong>IVA a ingresar a Hacienda</strong></p>
+                            <h2 class="fw-bold {% if fsc.datos.iva_a_pagar > 0 %}text-danger{% else %}text-success{% endif %}">
+                                {{ fsc.datos.iva_a_pagar | number_format(2, ',', '.') }} €
+                            </h2>
+                            <small class="text-muted">Modelo 303</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ══════════════════════════════════════════════════════════════ #}
+    {# BLOQUE 2: Resultado + IRPF                                    #}
+    {# ══════════════════════════════════════════════════════════════ #}
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-dark text-white">
+            <i class="fas fa-chart-line"></i>
+            <strong> Resultado estimado — Base para Modelo 130</strong>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <p class="text-muted mb-1">Ingresos netos</p>
+                            <h4 class="text-success fw-bold">+ {{ fsc.datos.neto_ventas | number_format(2, ',', '.') }} €</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <p class="text-muted mb-1">Compras y gastos</p>
+                            <h4 class="text-danger fw-bold">− {{ fsc.datos.neto_compras | number_format(2, ',', '.') }} €</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card h-100 {% if fsc.datos.beneficio_neto > 0 %}border-success{% else %}border-danger{% endif %}">
+                        <div class="card-body text-center">
+                            <p class="text-muted mb-1"><strong>Beneficio neto</strong></p>
+                            <h4 class="fw-bold {% if fsc.datos.beneficio_neto > 0 %}text-success{% else %}text-danger{% endif %}">
+                                {{ fsc.datos.beneficio_neto | number_format(2, ',', '.') }} €
+                            </h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card h-100 border-info">
+                        <div class="card-body text-center">
+                            <p class="text-muted mb-1">IRPF retenido por clientes</p>
+                            <h4 class="text-info fw-bold">{{ fsc.datos.irpf_retenido | number_format(2, ',', '.') }} €</h4>
+                            <small class="text-muted">Ya pagado a Hacienda</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ══════════════════════════════════════════════════════════════ #}
+    {# BLOQUE 3: Facturas emitidas                                   #}
+    {# ══════════════════════════════════════════════════════════════ #}
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-success text-white">
+            <i class="fas fa-file-invoice"></i>
+            <strong> Libro Facturas Emitidas</strong>
+            <span class="badge bg-light text-dark ms-2">{{ fsc.datos.num_facturas }}</span>
+        </div>
+        <div class="card-body p-0">
+            {% if fsc.facturas is not empty %}
+            <table class="table table-sm table-striped table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Nº Factura</th>
+                        <th>Fecha</th>
+                        <th>Cliente / Fabricante</th>
+                        <th>NIF</th>
+                        <th class="text-end">Base</th>
+                        <th class="text-end">IVA 21%</th>
+                        <th class="text-end">IRPF -15%</th>
+                        <th class="text-end">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in fsc.facturas %}
+                    <tr>
+                        <td><strong>{{ f.codigo }}</strong></td>
+                        <td>{{ f.fecha }}</td>
+                        <td>{{ f.nombrecliente }}</td>
+                        <td><small class="text-muted">{{ f.cifnif }}</small></td>
+                        <td class="text-end">{{ f.neto | number_format(2, ',', '.') }} €</td>
+                        <td class="text-end">{{ f.totaliva | number_format(2, ',', '.') }} €</td>
+                        <td class="text-end text-danger">−{{ f.totalirpf | number_format(2, ',', '.') }} €</td>
+                        <td class="text-end fw-bold">{{ f.total | number_format(2, ',', '.') }} €</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="table-success">
+                    <tr>
+                        <th colspan="4">TOTAL {{ fsc.datos.num_facturas }} facturas</th>
+                        <th class="text-end">{{ fsc.datos.neto_ventas | number_format(2, ',', '.') }} €</th>
+                        <th class="text-end">{{ fsc.datos.iva_repercutido | number_format(2, ',', '.') }} €</th>
+                        <th class="text-end text-danger">−{{ fsc.datos.irpf_retenido | number_format(2, ',', '.') }} €</th>
+                        <th class="text-end">{{ fsc.datos.total_ventas | number_format(2, ',', '.') }} €</th>
+                    </tr>
+                </tfoot>
+            </table>
+            {% else %}
+            <div class="p-3 text-muted">No hay facturas emitidas en este trimestre.</div>
+            {% endif %}
+        </div>
+    </div>
+
+    {# ══════════════════════════════════════════════════════════════ #}
+    {# BLOQUE 4: Compras / gastos                                    #}
+    {# ══════════════════════════════════════════════════════════════ #}
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-warning text-dark">
+            <i class="fas fa-shopping-cart"></i>
+            <strong> Libro Facturas Recibidas (Compras y Gastos)</strong>
+            <span class="badge bg-dark text-white ms-2">{{ fsc.datos.num_compras }}</span>
+        </div>
+        <div class="card-body p-0">
+            {% if fsc.compras is not empty %}
+            <table class="table table-sm table-striped table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Nº</th>
+                        <th>Fecha</th>
+                        <th>Proveedor</th>
+                        <th>NIF</th>
+                        <th class="text-end">Base</th>
+                        <th class="text-end">IVA</th>
+                        <th class="text-end">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in fsc.compras %}
+                    <tr>
+                        <td>{{ c.codigo }}</td>
+                        <td>{{ c.fecha }}</td>
+                        <td>{{ c.nombreprov }}</td>
+                        <td><small class="text-muted">{{ c.cifnif }}</small></td>
+                        <td class="text-end">{{ c.neto | number_format(2, ',', '.') }} €</td>
+                        <td class="text-end">{{ c.totaliva | number_format(2, ',', '.') }} €</td>
+                        <td class="text-end fw-bold">{{ c.total | number_format(2, ',', '.') }} €</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="table-warning">
+                    <tr>
+                        <th colspan="4">TOTAL {{ fsc.datos.num_compras }} compras</th>
+                        <th class="text-end">{{ fsc.datos.neto_compras | number_format(2, ',', '.') }} €</th>
+                        <th class="text-end">{{ fsc.datos.iva_soportado | number_format(2, ',', '.') }} €</th>
+                        <th class="text-end">{{ fsc.datos.total_compras | number_format(2, ',', '.') }} €</th>
+                    </tr>
+                </tfoot>
+            </table>
+            {% else %}
+            <div class="p-3 text-muted">
+                No hay compras en este trimestre.
+                <a href="ListFacturaProveedor" class="alert-link">Ir a Compras →</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {# ── Resumen para el asesor ───────────────────────────────────── #}
+    <div class="card border-secondary shadow-sm">
+        <div class="card-header">
+            <i class="fas fa-clipboard-list"></i>
+            <strong> Resumen para el asesor — T{{ fsc.trimestre }} {{ fsc.anyo }}</strong>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6 class="text-muted">IVA — Modelo 303</h6>
+                    <table class="table table-sm table-borderless">
+                        <tr><td>IVA repercutido (casilla 01)</td><td class="text-end fw-bold">{{ fsc.datos.iva_repercutido | number_format(2, ',', '.') }} €</td></tr>
+                        <tr><td>IVA soportado (casilla 28)</td><td class="text-end fw-bold">{{ fsc.datos.iva_soportado | number_format(2, ',', '.') }} €</td></tr>
+                        <tr class="{% if fsc.datos.iva_a_pagar > 0 %}table-danger{% else %}table-success{% endif %}">
+                            <td><strong>A ingresar / devolver</strong></td>
+                            <td class="text-end fw-bold">{{ fsc.datos.iva_a_pagar | number_format(2, ',', '.') }} €</td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <h6 class="text-muted">IRPF — Modelo 130</h6>
+                    <table class="table table-sm table-borderless">
+                        <tr><td>Ingresos (base facturas)</td><td class="text-end fw-bold">{{ fsc.datos.neto_ventas | number_format(2, ',', '.') }} €</td></tr>
+                        <tr><td>Gastos deducibles</td><td class="text-end fw-bold">{{ fsc.datos.neto_compras | number_format(2, ',', '.') }} €</td></tr>
+                        <tr><td><strong>Rendimiento neto</strong></td><td class="text-end fw-bold">{{ fsc.datos.beneficio_neto | number_format(2, ',', '.') }} €</td></tr>
+                        <tr><td>IRPF retenido (ya pagado)</td><td class="text-end fw-bold">{{ fsc.datos.irpf_retenido | number_format(2, ',', '.') }} €</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
