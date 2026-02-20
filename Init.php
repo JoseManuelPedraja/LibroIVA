@@ -6,6 +6,7 @@
 
 namespace FacturaScripts\Plugins\LibroIVA;
 
+use FacturaScripts\Core\Base\DataBase;
 use FacturaScripts\Core\Template\InitClass;
 
 class Init extends InitClass
@@ -15,7 +16,6 @@ class Init extends InitClass
      */
     public function init(): void
     {
-        // De momento no necesitamos nada aquí
     }
 
     /**
@@ -23,16 +23,38 @@ class Init extends InitClass
      */
     public function uninstall(): void
     {
-        // De momento no necesitamos limpiar nada al desinstalar
     }
 
     /**
      * Se ejecuta al instalar o actualizar el plugin.
-     * En FacturaScripts 2025 las páginas se registran automáticamente
-     * desde el método getPageData() de cada controlador.
+     * Crea el formato PDF "Libro IVA" en formatos_documentos si no existe,
+     * para que sea configurable desde Admin > Plantillas PDF.
      */
     public function update(): void
     {
-        // Las páginas se auto-registran desde los controladores
+        $db = new DataBase();
+
+        // Solo si PlantillasPDF está instalado (tabla existe)
+        if (!$db->tableExists('formatos_documentos')) {
+            return;
+        }
+
+        // Crear el formato si no existe todavía
+        $exists = $db->select("SELECT id FROM formatos_documentos WHERE nombre = 'Libro IVA' LIMIT 1");
+        if (!empty($exists)) {
+            return;
+        }
+
+        $formatoClass = '\\FacturaScripts\\Dinamic\\Model\\FormatoDocumento';
+        if (!class_exists($formatoClass)) {
+            return;
+        }
+
+        $formato = new $formatoClass();
+        $formato->nombre = 'Libro IVA';
+        $formato->titulo = 'Libro IVA';
+        $formato->tipodoc = 'LibroIVA';
+        $formato->autoaplicar = false;
+        $formato->save();
     }
 }
