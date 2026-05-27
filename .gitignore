@@ -1,0 +1,9 @@
+# Config local de Claude / editor (no se sube al repo)
+.claude/
+*.code-workspace
+
+# PDFs generados del libro de IVA (artefactos, no código)
+Libro_IVA_*.pdf
+
+# Otros artefactos
+*.log
