@@ -1,6 +1,6 @@
 <?php
 /**
- * Plugin Comerciales para FacturaScripts
+ * Plugin LibroIVA para FacturaScripts
  * Libro de IVA trimestral para autónomos comerciales en España.
  *
  * Lee directamente las tablas nativas de FacturaScripts:

@@ -11,7 +11,7 @@ namespace FacturaScripts\Plugins\LibroIVA\Controller;
 
 use FacturaScripts\Core\Base\Controller;
 use FacturaScripts\Core\Base\DataBase;
-use FacturaScripts\Core\Lib\Export\PDFExport;
+use FacturaScripts\Dinamic\Lib\Export\PDFExport;
 
 class ExportResumenPDF extends Controller
 {
@@ -89,13 +89,16 @@ class ExportResumenPDF extends Controller
         $emp = $db->select("SELECT idempresa FROM empresas ORDER BY idempresa ASC LIMIT 1");
         $idempresa = (int)($emp[0]['idempresa'] ?? 1);
 
-        // Plantilla PDF: la que tenga autoaplicar=1 para esta empresa (la configurada en Plantillas PDF)
-        // Si no hay ninguna con autoaplicar, coge la primera disponible
-        $fmt = $db->select("
-            SELECT id FROM formatos_documentos
-            WHERE autoaplicar = 1 AND idempresa = {$idempresa}
-            ORDER BY id ASC LIMIT 1
-        ");
+        // Plantilla PDF: primero buscamos el formato específico "Libro IVA" (configurable desde Admin > Plantillas PDF)
+        // Si no existe, usamos el que tenga autoaplicar=1 para esta empresa, o el primero disponible
+        $fmt = $db->select("SELECT id FROM formatos_documentos WHERE nombre = 'Libro IVA' ORDER BY id ASC LIMIT 1");
+        if (empty($fmt)) {
+            $fmt = $db->select("
+                SELECT id FROM formatos_documentos
+                WHERE autoaplicar = 1 AND idempresa = {$idempresa}
+                ORDER BY id ASC LIMIT 1
+            ");
+        }
         if (empty($fmt)) {
             $fmt = $db->select("SELECT id FROM formatos_documentos ORDER BY id ASC LIMIT 1");
         }
