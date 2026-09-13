@@ -5,6 +5,13 @@
  *   Pagina 1 - Facturas emitidas (detalle)
  *   Pagina 2 - Facturas recibidas / compras (detalle)
  *   Pagina 3 - Resumen global (Mod.303 + Mod.130) para el gestor
+ *
+ * Las páginas 1 y 2 son el detalle de facturas (tal cual constan en
+ * facturascli/facturasprov). La página 3 (la que de verdad importa para
+ * Hacienda) usa el IVA repercutido, el IVA soportado y los gastos
+ * deducibles según CONTABILIDAD (cuentas 477, 472 y grupo 6 excepto 678),
+ * porque el importe real puede haberse ajustado en el asiento (p.ej.
+ * prorrata de IVA) y no coincidir con el de la factura de origen.
  */
 
 namespace FacturaScripts\Plugins\LibroIVA\Controller;
@@ -12,6 +19,7 @@ namespace FacturaScripts\Plugins\LibroIVA\Controller;
 use FacturaScripts\Core\Base\Controller;
 use FacturaScripts\Core\Base\DataBase;
 use FacturaScripts\Dinamic\Lib\Export\PDFExport;
+use FacturaScripts\Plugins\LibroIVA\Lib\LibroIVA\CuentaTotales;
 
 class ExportResumenPDF extends Controller
 {
@@ -81,9 +89,16 @@ class ExportResumenPDF extends Controller
             WHERE fecha >= '{$fechaInicio}' AND fecha <= '{$fechaFin}'
         ")[0] ?? [];
 
-        // Calculos globales
-        $ivaPagar  = round((float)($totV['iva']  ?? 0) - (float)($totC['iva']  ?? 0), 2);
-        $beneficio = round((float)($totV['neto'] ?? 0) - (float)($totC['neto'] ?? 0), 2);
+        // Calculos globales (según CONTABILIDAD, no según las facturas)
+        // 477 = IVA repercutido (Hacienda Pública, acreedora) → saldo acreedor
+        $ivaRepCont = CuentaTotales::saldoAcreedor($db, '477', $fechaInicio, $fechaFin);
+        // 472 = IVA soportado (Hacienda Pública, deudora) → saldo deudor
+        $ivaSopCont = CuentaTotales::saldoDeudor($db, '472', $fechaInicio, $fechaFin);
+        $ivaPagar = round($ivaRepCont - $ivaSopCont, 2);
+
+        // Grupo 6 = gastos, excepto la 678 (gastos excepcionales, no deducibles)
+        $gastosDeducibles = CuentaTotales::saldoDeudor($db, '6', $fechaInicio, $fechaFin, ['678']);
+        $beneficio = round((float)($totV['neto'] ?? 0) - $gastosDeducibles, 2);
 
         // Empresa por defecto
         $emp = $db->select("SELECT idempresa FROM empresas ORDER BY idempresa ASC LIMIT 1");
@@ -164,20 +179,11 @@ class ExportResumenPDF extends Controller
         // ============================================================
         $hR    = ['Concepto', 'Importe'];
         $rowsR = [
-            ['IVA - MODELO 303', ''],
-            ['Facturas emitidas (' . (int)($totV['num'] ?? 0) . ')', ''],
-            ['  Base imponible (ingresos sin IVA)',
-                number_format((float)($totV['neto'] ?? 0), 2, ',', '.') . ' EUR'],
-            ['  IVA repercutido (casilla 01)',
-                number_format((float)($totV['iva']  ?? 0), 2, ',', '.') . ' EUR'],
-            ['  IRPF retenido por clientes (ya ingresado)',
-                number_format((float)($totV['irpf'] ?? 0), 2, ',', '.') . ' EUR'],
-            ['', ''],
-            ['Facturas recibidas / gastos (' . (int)($totC['num'] ?? 0) . ')', ''],
-            ['  Base imponible (gastos sin IVA)',
-                number_format((float)($totC['neto'] ?? 0), 2, ',', '.') . ' EUR'],
-            ['  IVA soportado deducible (casilla 28)',
-                number_format((float)($totC['iva']  ?? 0), 2, ',', '.') . ' EUR'],
+            ['IVA - MODELO 303 (según contabilidad)', ''],
+            ['  IVA repercutido (casilla 01) — cuenta 477',
+                number_format($ivaRepCont, 2, ',', '.') . ' EUR'],
+            ['  IVA soportado deducible (casilla 28) — cuenta 472',
+                number_format($ivaSopCont, 2, ',', '.') . ' EUR'],
             ['', ''],
             ['IVA A INGRESAR A HACIENDA (Mod. 303)',
                 number_format($ivaPagar, 2, ',', '.') . ' EUR'],
@@ -185,12 +191,18 @@ class ExportResumenPDF extends Controller
             ['IRPF - MODELO 130 (estimacion directa simplificada)', ''],
             ['Ingresos netos (base facturas emitidas)',
                 number_format((float)($totV['neto'] ?? 0), 2, ',', '.') . ' EUR'],
-            ['Gastos deducibles (base facturas recibidas)',
-                number_format((float)($totC['neto'] ?? 0), 2, ',', '.') . ' EUR'],
+            ['Gastos deducibles (cuentas 6xx, sin la 678)',
+                number_format($gastosDeducibles, 2, ',', '.') . ' EUR'],
             ['Rendimiento neto estimado',
                 number_format($beneficio, 2, ',', '.') . ' EUR'],
             ['IRPF retenido por clientes (ya ingresado)',
                 number_format((float)($totV['irpf'] ?? 0), 2, ',', '.') . ' EUR'],
+            ['', ''],
+            ['Detalle facturación (referencia, no coincide necesariamente con contabilidad)', ''],
+            ['  Facturas emitidas (' . (int)($totV['num'] ?? 0) . ') — IVA repercutido en factura',
+                number_format((float)($totV['iva'] ?? 0), 2, ',', '.') . ' EUR'],
+            ['  Facturas recibidas (' . (int)($totC['num'] ?? 0) . ') — IVA soportado en factura',
+                number_format((float)($totC['iva'] ?? 0), 2, ',', '.') . ' EUR'],
         ];
         $pdf->addTablePage($hR, $rowsR, [], "Resumen para el gestor - {$periodo}");
 
