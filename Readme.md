@@ -18,7 +18,7 @@ Genera el libro de IVA trimestral con todo lo necesario para presentar los model
 
 ## Requisitos
 
-- FacturaScripts 2026.65 o superior
+- FacturaScripts 2025 o superior
 - Plugin **PlantillasPDF** instalado y activo
 - Módulo de facturación activo (tablas `facturascli` y `facturasprov`)
 
