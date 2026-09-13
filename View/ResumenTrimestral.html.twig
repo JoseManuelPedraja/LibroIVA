@@ -42,6 +42,13 @@
         {{ fsc.datos.fecha_inicio }} — {{ fsc.datos.fecha_fin }}
     </div>
 
+    {% if not fsc.datos.contabilidad_disponible %}
+    <div class="alert alert-warning">
+        <i class="fas fa-triangle-exclamation"></i>
+        No se ha encontrado ningún asiento contable en este periodo (ejercicio cerrado, sin plan contable instalado, o sin actividad contabilizada). Los importes de IVA y gastos que ves abajo se han calculado directamente desde las facturas, como respaldo, y pueden no coincidir con el resultado real si alguna vez ajustas el IVA o el gasto de una factura en el asiento.
+    </div>
+    {% endif %}
+
     {# ══════════════════════════════════════════════════════════════ #}
     {# BLOQUE 1: IVA (Modelo 303)                                    #}
     {# ══════════════════════════════════════════════════════════════ #}

@@ -171,6 +171,7 @@ class ResumenTrimestral extends PanelController
             'gastos_deducibles' => $gastosDeducibles,
             'iva_a_pagar'     => $ivaPagar,
             'beneficio_neto'  => $beneficio,
+            'contabilidad_disponible' => $contabilidadDisponible,
         ];
     }
 }

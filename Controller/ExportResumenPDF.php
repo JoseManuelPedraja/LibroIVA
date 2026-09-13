@@ -90,14 +90,25 @@ class ExportResumenPDF extends Controller
         ")[0] ?? [];
 
         // Calculos globales (según CONTABILIDAD, no según las facturas)
-        // 477 = IVA repercutido (Hacienda Pública, acreedora) → saldo acreedor
-        $ivaRepCont = CuentaTotales::saldoAcreedor($db, '477', $fechaInicio, $fechaFin);
-        // 472 = IVA soportado (Hacienda Pública, deudora) → saldo deudor
-        $ivaSopCont = CuentaTotales::saldoDeudor($db, '472', $fechaInicio, $fechaFin);
-        $ivaPagar = round($ivaRepCont - $ivaSopCont, 2);
+        // FacturaScripts contabiliza automáticamente cada factura al guardarla,
+        // así que esto es true en la inmensa mayoría de instalaciones. Si no hay
+        // ningún asiento en el periodo (ejercicio sin plan contable, cerrado...),
+        // usamos las facturas como antes, en vez de mostrar ceros falsos.
+        $contabilidadDisponible = CuentaTotales::hayAsientosEnPeriodo($db, $fechaInicio, $fechaFin);
 
-        // Grupo 6 = gastos, excepto la 678 (gastos excepcionales, no deducibles)
-        $gastosDeducibles = CuentaTotales::saldoDeudor($db, '6', $fechaInicio, $fechaFin, ['678']);
+        if ($contabilidadDisponible) {
+            // 477 = IVA repercutido (Hacienda Pública, acreedora) → saldo acreedor
+            $ivaRepCont = CuentaTotales::saldoAcreedor($db, '477', $fechaInicio, $fechaFin);
+            // 472 = IVA soportado (Hacienda Pública, deudora) → saldo deudor
+            $ivaSopCont = CuentaTotales::saldoDeudor($db, '472', $fechaInicio, $fechaFin);
+            // Grupo 6 = gastos, excepto la 678 (gastos excepcionales, no deducibles)
+            $gastosDeducibles = CuentaTotales::saldoDeudor($db, '6', $fechaInicio, $fechaFin, ['678']);
+        } else {
+            $ivaRepCont = (float)($totV['iva'] ?? 0);
+            $ivaSopCont = (float)($totC['iva'] ?? 0);
+            $gastosDeducibles = (float)($totC['neto'] ?? 0);
+        }
+        $ivaPagar = round($ivaRepCont - $ivaSopCont, 2);
         $beneficio = round((float)($totV['neto'] ?? 0) - $gastosDeducibles, 2);
 
         // Empresa por defecto
@@ -177,9 +188,13 @@ class ExportResumenPDF extends Controller
         // ============================================================
         // PAGINA 3 - Resumen global para el gestor
         // ============================================================
+        $origenDatos = $contabilidadDisponible
+            ? 'según contabilidad'
+            : 'según facturas — no se ha encontrado contabilidad para este periodo';
+
         $hR    = ['Concepto', 'Importe'];
         $rowsR = [
-            ['IVA - MODELO 303 (según contabilidad)', ''],
+            ["IVA - MODELO 303 ({$origenDatos})", ''],
             ['  IVA repercutido (casilla 01) — cuenta 477',
                 number_format($ivaRepCont, 2, ',', '.') . ' EUR'],
             ['  IVA soportado deducible (casilla 28) — cuenta 472',
