@@ -42,6 +42,13 @@
         {{ fsc.datos.fecha_inicio }} — {{ fsc.datos.fecha_fin }}
     </div>
 
+    {% if not fsc.datos.contabilidad_disponible %}
+    <div class="alert alert-warning">
+        <i class="fas fa-triangle-exclamation"></i>
+        No se ha encontrado ningún asiento contable en este periodo (ejercicio cerrado, sin plan contable instalado, o sin actividad contabilizada). Los importes de IVA y gastos que ves abajo se han calculado directamente desde las facturas, como respaldo, y pueden no coincidir con el resultado real si alguna vez ajustas el IVA o el gasto de una factura en el asiento.
+    </div>
+    {% endif %}
+
     {# ══════════════════════════════════════════════════════════════ #}
     {# BLOQUE 1: IVA (Modelo 303)                                    #}
     {# ══════════════════════════════════════════════════════════════ #}
@@ -49,24 +56,25 @@
         <div class="card-header bg-primary text-white">
             <i class="fas fa-percent"></i>
             <strong> Declaración IVA — Modelo 303</strong>
+            <small class="ms-2 opacity-75">(según contabilidad, cuentas 477/472)</small>
         </div>
         <div class="card-body">
             <div class="row g-3">
                 <div class="col-md-4">
                     <div class="card h-100 border-success">
                         <div class="card-body text-center">
-                            <p class="text-muted mb-1">IVA repercutido <small>(facturas emitidas)</small></p>
+                            <p class="text-muted mb-1">IVA repercutido <small>(cuenta 477)</small></p>
                             <h3 class="text-success fw-bold">{{ fsc.datos.iva_repercutido | number_format(2, ',', '.') }} €</h3>
-                            <small class="text-muted">{{ fsc.datos.num_facturas }} factura{% if fsc.datos.num_facturas != 1 %}s{% endif %}</small>
+                            <small class="text-muted">{{ fsc.datos.num_facturas }} factura{% if fsc.datos.num_facturas != 1 %}s{% endif %} emitida{% if fsc.datos.num_facturas != 1 %}s{% endif %}</small>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="card h-100 border-warning">
                         <div class="card-body text-center">
-                            <p class="text-muted mb-1">IVA soportado <small>(compras y gastos)</small></p>
+                            <p class="text-muted mb-1">IVA soportado <small>(cuenta 472)</small></p>
                             <h3 class="text-warning fw-bold">{{ fsc.datos.iva_soportado | number_format(2, ',', '.') }} €</h3>
-                            <small class="text-muted">{{ fsc.datos.num_compras }} compra{% if fsc.datos.num_compras != 1 %}s{% endif %}</small>
+                            <small class="text-muted">{{ fsc.datos.num_compras }} compra{% if fsc.datos.num_compras != 1 %}s{% endif %} registrada{% if fsc.datos.num_compras != 1 %}s{% endif %}</small>
                         </div>
                     </div>
                 </div>
@@ -92,6 +100,7 @@
         <div class="card-header bg-dark text-white">
             <i class="fas fa-chart-line"></i>
             <strong> Resultado estimado — Base para Modelo 130</strong>
+            <small class="ms-2 opacity-75">(gastos según contabilidad, grupo 6 excepto 678)</small>
         </div>
         <div class="card-body">
             <div class="row g-3">
@@ -106,8 +115,8 @@
                 <div class="col-md-3">
                     <div class="card h-100">
                         <div class="card-body text-center">
-                            <p class="text-muted mb-1">Compras y gastos</p>
-                            <h4 class="text-danger fw-bold">− {{ fsc.datos.neto_compras | number_format(2, ',', '.') }} €</h4>
+                            <p class="text-muted mb-1">Gastos deducibles <small>(cuentas 6xx)</small></p>
+                            <h4 class="text-danger fw-bold">− {{ fsc.datos.gastos_deducibles | number_format(2, ',', '.') }} €</h4>
                         </div>
                     </div>
                 </div>
@@ -176,7 +185,7 @@
                     <tr>
                         <th colspan="4">TOTAL {{ fsc.datos.num_facturas }} facturas</th>
                         <th class="text-end">{{ fsc.datos.neto_ventas | number_format(2, ',', '.') }} €</th>
-                        <th class="text-end">{{ fsc.datos.iva_repercutido | number_format(2, ',', '.') }} €</th>
+                        <th class="text-end">{{ fsc.datos.iva_repercutido_facturas | number_format(2, ',', '.') }} €</th>
                         <th class="text-end text-danger">−{{ fsc.datos.irpf_retenido | number_format(2, ',', '.') }} €</th>
                         <th class="text-end">{{ fsc.datos.total_ventas | number_format(2, ',', '.') }} €</th>
                     </tr>
@@ -227,8 +236,8 @@
                 <tfoot class="table-warning">
                     <tr>
                         <th colspan="4">TOTAL {{ fsc.datos.num_compras }} compras</th>
-                        <th class="text-end">{{ fsc.datos.neto_compras | number_format(2, ',', '.') }} €</th>
-                        <th class="text-end">{{ fsc.datos.iva_soportado | number_format(2, ',', '.') }} €</th>
+                        <th class="text-end">{{ fsc.datos.neto_compras_facturas | number_format(2, ',', '.') }} €</th>
+                        <th class="text-end">{{ fsc.datos.iva_soportado_facturas | number_format(2, ',', '.') }} €</th>
                         <th class="text-end">{{ fsc.datos.total_compras | number_format(2, ',', '.') }} €</th>
                     </tr>
                 </tfoot>
@@ -265,7 +274,7 @@
                     <h6 class="text-muted">IRPF — Modelo 130</h6>
                     <table class="table table-sm table-borderless">
                         <tr><td>Ingresos (base facturas)</td><td class="text-end fw-bold">{{ fsc.datos.neto_ventas | number_format(2, ',', '.') }} €</td></tr>
-                        <tr><td>Gastos deducibles</td><td class="text-end fw-bold">{{ fsc.datos.neto_compras | number_format(2, ',', '.') }} €</td></tr>
+                        <tr><td>Gastos deducibles (cuentas 6xx, sin la 678)</td><td class="text-end fw-bold">{{ fsc.datos.gastos_deducibles | number_format(2, ',', '.') }} €</td></tr>
                         <tr><td><strong>Rendimiento neto</strong></td><td class="text-end fw-bold">{{ fsc.datos.beneficio_neto | number_format(2, ',', '.') }} €</td></tr>
                         <tr><td>IRPF retenido (ya pagado)</td><td class="text-end fw-bold">{{ fsc.datos.irpf_retenido | number_format(2, ',', '.') }} €</td></tr>
                     </table>

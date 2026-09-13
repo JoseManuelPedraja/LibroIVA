@@ -1,6 +1,6 @@
 # LibroIVA
 
-Plugin para FacturaScripts 2026.65 orientado a **autónomos y agentes comerciales en España**.
+Plugin para FacturaScripts 2025 o superior orientado a **autónomos y agentes comerciales en España**.
 
 Genera el libro de IVA trimestral con todo lo necesario para presentar los modelos fiscales trimestrales.
 
@@ -8,19 +8,21 @@ Genera el libro de IVA trimestral con todo lo necesario para presentar los model
 
 - Resumen trimestral de IVA en pantalla (Mod. 303)
 - Cálculo de IRPF retenido y rendimiento neto (Mod. 130)
+- **El IVA repercutido, el IVA soportado y los gastos deducibles se calculan según la CONTABILIDAD** (cuentas 477, 472 y grupo 6 excepto la 678), no según las facturas: si un asiento ajusta el IVA o el gasto de una factura (p.ej. por prorrata de IVA), el libro refleja el importe real contabilizado. Esto incluye automáticamente gastos que no vienen de una factura de proveedor, como nóminas (640), Seguridad Social a cargo de la empresa (642) o amortizaciones (680, 681...).
+- Las facturas de clientes/proveedores se siguen mostrando en detalle (páginas 1 y 2 del PDF) tal cual constan, como listado de referencia.
 - Exportación a PDF del libro completo con tres páginas:
   - **Pág. 1** — Facturas emitidas (clientes): base, IVA 21%, IRPF -15%, total
   - **Pág. 2** — Facturas recibidas (proveedores/gastos): base, IVA, total
-  - **Pág. 3** — Resumen global para el gestor (Mod. 303 + Mod. 130)
+  - **Pág. 3** — Resumen global para el gestor (Mod. 303 + Mod. 130), según contabilidad
 - El PDF usa el motor de **PlantillasPDF** (Dinamic): respeta el template seleccionado, colores, logo y cabecera de cada instalación
 - Formato PDF propio **"Libro IVA"** configurable de forma independiente desde Admin > Plantillas PDF
 - Selector de año y trimestre (T1–T4)
 
 ## Requisitos
 
-- FacturaScripts 2026.65 o superior
+- FacturaScripts 2025 o superior
 - Plugin **PlantillasPDF** instalado y activo
-- Módulo de facturación activo (tablas `facturascli` y `facturasprov`)
+- Módulo de contabilidad activo (tablas `asientos`, `partidas`) y de facturación (`facturascli`, `facturasprov`)
 
 ## Instalación
 

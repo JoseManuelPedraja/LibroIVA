@@ -3,17 +3,21 @@
  * Plugin LibroIVA para FacturaScripts
  * Libro de IVA trimestral para autónomos comerciales en España.
  *
- * Lee directamente las tablas nativas de FacturaScripts:
- *   - facturascli   → facturas emitidas (IVA repercutido)
- *   - facturasprov  → facturas de compras/gastos (IVA soportado)
+ * Las tablas de facturas (facturascli/facturasprov) solo se usan para el
+ * detalle/listado. El IVA repercutido, el IVA soportado y los gastos
+ * deducibles del Modelo 303/130 se calculan a partir de la contabilidad
+ * (cuentas 477, 472 y grupo 6 excepto 678), porque el importe real puede
+ * haberse ajustado en el asiento (p.ej. prorrata de IVA) y no coincidir
+ * con el de la factura de origen.
  *
- * Calcula: IVA a pagar = IVA repercutido - IVA soportado deducible
+ * Calcula: IVA a pagar = IVA repercutido (cta. 477) - IVA soportado deducible (cta. 472)
  */
 
 namespace FacturaScripts\Plugins\LibroIVA\Controller;
 
 use FacturaScripts\Core\Base\DataBase;
 use FacturaScripts\Core\Lib\ExtendedController\PanelController;
+use FacturaScripts\Plugins\LibroIVA\Lib\LibroIVA\CuentaTotales;
 
 class ResumenTrimestral extends PanelController
 {
@@ -119,14 +123,29 @@ class ResumenTrimestral extends PanelController
             ORDER BY fecha ASC, codigo ASC
         ");
 
-        // ── CÁLCULOS ──────────────────────────────────────────────────
-        $ivaRep   = (float)($totVentas['iva']  ?? 0);
-        $ivaSop   = (float)($totCompras['iva'] ?? 0);
+        // ── CÁLCULOS (según CONTABILIDAD, no según las facturas) ───────
+        // FacturaScripts contabiliza automáticamente cada factura al guardarla,
+        // así que esto es true en la inmensa mayoría de instalaciones. Si no hay
+        // ningún asiento en el periodo (ejercicio sin plan contable, cerrado...),
+        // usamos las facturas como antes, en vez de mostrar ceros falsos.
+        $contabilidadDisponible = CuentaTotales::hayAsientosEnPeriodo($db, $fechaInicio, $fechaFin);
+
+        if ($contabilidadDisponible) {
+            // 477 = IVA repercutido (Hacienda Pública, acreedora) → saldo acreedor
+            $ivaRep = CuentaTotales::saldoAcreedor($db, '477', $fechaInicio, $fechaFin);
+            // 472 = IVA soportado (Hacienda Pública, deudora) → saldo deudor
+            $ivaSop = CuentaTotales::saldoDeudor($db, '472', $fechaInicio, $fechaFin);
+            // Grupo 6 = gastos, excepto la 678 (gastos excepcionales, no deducibles)
+            $gastosDeducibles = CuentaTotales::saldoDeudor($db, '6', $fechaInicio, $fechaFin, ['678']);
+        } else {
+            $ivaRep = (float)($totVentas['iva'] ?? 0);
+            $ivaSop = (float)($totCompras['iva'] ?? 0);
+            $gastosDeducibles = (float)($totCompras['neto'] ?? 0);
+        }
         $ivaPagar = round($ivaRep - $ivaSop, 2);
 
-        $netoVentas  = (float)($totVentas['neto']  ?? 0);
-        $netoCompras = (float)($totCompras['neto'] ?? 0);
-        $beneficio   = round($netoVentas - $netoCompras, 2);
+        $netoVentas = (float)($totVentas['neto'] ?? 0);
+        $beneficio  = round($netoVentas - $gastosDeducibles, 2);
 
         $this->datos = [
             'fecha_inicio'    => $fechaInicio,
@@ -134,20 +153,25 @@ class ResumenTrimestral extends PanelController
 
             // Ventas
             'neto_ventas'     => $netoVentas,
-            'iva_repercutido' => $ivaRep,
             'irpf_retenido'   => (float)($totVentas['irpf']  ?? 0),
             'total_ventas'    => (float)($totVentas['total'] ?? 0),
             'num_facturas'    => (int)($totVentas['num']     ?? 0),
+            // Total de la tabla de facturas emitidas (solo para cuadrar ese listado)
+            'iva_repercutido_facturas' => (float)($totVentas['iva'] ?? 0),
 
-            // Compras
-            'neto_compras'    => $netoCompras,
-            'iva_soportado'   => $ivaSop,
+            // Compras (detalle/listado de facturas de proveedor)
+            'neto_compras_facturas' => (float)($totCompras['neto'] ?? 0),
+            'iva_soportado_facturas' => (float)($totCompras['iva'] ?? 0),
             'total_compras'   => (float)($totCompras['total'] ?? 0),
             'num_compras'     => (int)($totCompras['num']     ?? 0),
 
-            // Resultado
+            // Modelo 303 / Modelo 130 (según contabilidad: cuentas 477, 472 y grupo 6)
+            'iva_repercutido' => $ivaRep,
+            'iva_soportado'   => $ivaSop,
+            'gastos_deducibles' => $gastosDeducibles,
             'iva_a_pagar'     => $ivaPagar,
             'beneficio_neto'  => $beneficio,
+            'contabilidad_disponible' => $contabilidadDisponible,
         ];
     }
 }
